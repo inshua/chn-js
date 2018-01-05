@@ -1,0 +1,70 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Insert title here</title>
+</head>
+<body>
+<textarea rows="30" cols="160" id="txResult"></textarea>
+<textarea rows="10" cols="160" id="txCode"></textarea>
+<div>
+<button onclick="compile()">compile!</button>
+<input type="button" onclick="run()" value="run">
+
+</div>
+</body>
+
+<script src="../lexer.js"> </script>
+<script src="../js_lex_rule.js"> </script>
+<script src="../parser.js"> </script>
+<script src="js_machine.js"> </script>
+<script src="js_compiler.js"> </script>
+<script>
+
+	var compiler = new Compiler();
+	function compile(){
+		try{
+			var lexer = new JsLexer(txCode.value, jsRules);
+			var parser = new Parser(lexer);
+			var tree = parser.parse(lexer);
+
+			if(tree){
+//				alert('parse complete')
+//				tree.traceLispExpr();
+			}
+						
+		} catch(e){
+			txResult.value = e;
+			if(e instanceof SyntaxError){
+				txCode.selectionStart = e.pos;
+				txCode.selectionEnd = (e.token? e.pos + e.token.length :e.pos + 1);
+			}
+		}
+
+		if(tree){
+//			try{
+				var code = compiler.compile(tree);
+				var sb = '';
+				for(var i=0; i< code.length; i++){
+					//sb += '[\'' + code[i].join('\',\'') + '\'];\r\n';
+					sb += i + '\t: ' + code[i].join(', ') + '\r\n';
+				}
+				txResult.value = sb;
+//			}			
+		}
+	}
+
+	function log(txt){
+		console.log(txt);
+	}
+
+	var machine = new JsMachine(this, compiler);
+	function run(){
+		var r = machine.run(compiler.getCompiledCode());
+		alert(r); 
+		console.log(r);
+	}
+		
+</script>
+
+</html>

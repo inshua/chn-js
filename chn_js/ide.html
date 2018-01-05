@@ -1,0 +1,273 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Javascript IDE</title>
+<style>
+	span.token_keyword {
+		font-size: 18px; 
+		font-family: Courier New;
+		color : navy;
+	}
+	span.token_string {
+		font-size: 18px; 
+		font-family: Courier New;
+		color : maroon;
+	}
+	span.token_id {
+		font-size: 18px; 
+		font-family: Courier New;
+	}
+	span.token_default {
+		font-size: 18px; 
+		font-family: Courier New;
+	}
+	
+	span.break {
+		background-color: yellow;
+	}
+	
+	pre{
+		margin-top: 2px;
+		margin-bottom: 2px;
+	}
+</style>
+</head>
+<body style="font-family: Arial">
+<div>
+<input type="button" onclick="run()" value="▶">
+<input type="button" onclick="stop()" value="▍">
+<input type="button" onclick="interpreter.stepNext(txCode.value)" value="單步">
+<input type="button" onclick="interpreter.stepOver(txCode.value)" value="逐過程">
+<input type="button" onclick="interpreter.stepReturn(txCode.value)" value="函數完">
+<input type="button" onclick="interpreter.resume()" value="繼續">
+</div>
+
+<div style="height:100%; overflow: hidden;">
+<textarea cols="150" id="txCode" rows="25" style="font-size: 18px; font-family: Courier New;">
+元 累加 = test(a) :: [[
+	調試器;
+	如果 a == 1 [[ 
+	 	返回 1;
+	]] 否則 [[
+	  	返回 a + test(a-1);
+	]]
+]];
+log(累加(5));
+</textarea>
+
+<div id="divCode" style="overflow: scroll; display: none;"></div>
+
+<div style="background-color: silver">控制台 <a href="javascript:divConsole.innerHTML=''">清除</a></div>
+<div style="width:100%;height: 100px; overflow: scroll;" id="divConsole"></div>
+<span>&gt;</span><input type="text" style="width:400px;font-size: 18px; font-family: Courier New;" onkeydown="repl(this);">
+</div>
+</body>
+
+<script>
+	window.console = {log : function(txt){
+		var pre = document.createElement('PRE');
+		pre.innerHTML = txt;
+		divConsole.appendChild(pre);
+		pre.scrollIntoViewIfNeeded();
+	}};
+	
+	function log(txt){
+		console.log(txt);
+	}
+	
+	function wrapObject(obj){
+		var o = {};
+		for(var k in obj){
+			var v = obj[k];
+			if(typeof v == 'function'){
+				var f = function(v){return function(){
+					var args = [];
+					for(var i=0; i<arguments.length; i++) args.push(arguments[i]);
+					v.apply(obj, arguments);
+				}}(v);
+				o[k] = f;
+			} else {
+				o[k] = v;
+			}
+		}
+		return o;
+	}
+	var global = wrapObject(window);
+	global['Object'] = window.Object;
+	global['Function'] = window.Function;
+	global['String'] = window.String;
+	global['Number'] = window.Number;
+	global['Date'] = window.Date;
+	global['Array'] = window.Array;
+	global['RegEx'] = window.RegEx;
+
+
+</script>
+
+<script src="./lexer.js"> </script>
+<script src="./js_lex_rule.js"> </script>
+<script src="./parser.js"> </script>
+<script src="js_machine.js"> </script>
+<script src="js_compiler.js"> </script>
+<script src="./interpreter.js"> </script>
+<script>
+	
+	var interpreter = new JsInterpreter(global);
+
+	global['eval'] = function(code){return interpreter.eval(code);}
+
+	interpreter.onerror = function(e, ast){
+		log(e.toString());
+		if(e instanceof SyntaxError){
+			txCode.selectionStart = e.pos;
+			txCode.selectionEnd = (e.token? e.pos + e.token.length :e.pos + 1);
+		} else if(ast && ast.token){
+			txCode.selectionStart = ast.token.pos;
+			txCode.selectionEnd = ast.token.length;
+		} else {
+			debugger;
+		}
+	};
+	
+	function run(){
+		interpreter.run(txCode.value);						
+	}
+
+
+	var evalList = [];
+	function repl(tx){
+		if(event.keyCode == 38){	// up
+			if(evalList.iterator >= 0){
+				tx.value = evalList[evalList.iterator--];
+				tx.selctionStart = tx.value.length;
+			}
+		} else if(event.keyCode == 40) { // down
+			if(evalList.iterator < evalList.length - 1){
+				tx.value = evalList[++evalList.iterator];
+				tx.selctionStart = tx.value.length;
+			} else {
+				tx.value = '';
+			}
+		}
+		if(event.keyCode == 13 && tx.value.length > 0){
+			var code = tx.value;
+			var pre = document.createElement('PRE');
+			pre.innerHTML = '> ' + code;
+			divConsole.appendChild(pre);
+			pre.style.color = 'green';
+			pre.scrollIntoViewIfNeeded();
+
+			try{
+				var r = interpreter.eval(tx.value);
+				log(' ' + r);
+			} catch(e){
+				var pre = document.createElement('PRE');
+				pre.innerHTML = e.toString();
+				divConsole.appendChild(pre);
+				pre.style.color = 'red';
+				pre.scrollIntoViewIfNeeded();
+			}
+			evalList.push(tx.value);
+			evalList.iterator = evalList.length -1;
+			tx.value = '';
+		}
+	}
+
+	interpreter.onparsecomplete = function(lexer, ast){
+		// init disp code div
+		divCode.innerHTML = '';
+		for(var tk = lexer.nextToken(); tk.type != 'EOF'; tk = lexer.nextToken()){
+			var span = document.createElement('SPAN');
+
+			if(tk.type == 'NEWLINE'){
+				var s = '';
+				for(var i=0; i<tk.text.length; i++){
+					var c = tk.text.charAt(i);
+					if(c == '\r'){
+						s += '<br>';
+						if(tk.text.charAt(i+1) == '\n') i++;
+					} else if(c == '\n') {
+						s += '<br>';
+						if(tk.text.charAt(i+1) == '\r') i++;
+					} else {
+						s += '&nbsp;';
+					}
+				}
+				span.innerHTML = s;
+			} else {
+				if(tk.text)
+					span.innerHTML = tk.text.replace(/ /mg, '&nbsp;').replace(/>/mg, '&gt;').replace(/</mg, '&lt;');
+			}
+
+			if(tk.isKeyword){
+				span.className = "token_keyword";
+			} else if(tk.type == 'STRING'){
+				span.className = 'token_string';
+			} else if(tk.type == 'ID'){
+				span.className = 'token_id';
+			} else {
+				span.className = 'token_default';
+			}
+
+			divCode.appendChild(span);
+		}
+
+
+		divCode.style.width = txCode.clientWidth + 'px';
+		divCode.style.height = txCode.clientHeight + 'px';
+		divCode.style.display = 'block';
+		txCode.style.display = 'none';
+	};
+
+	function stop(){
+		txCode.style.display = 'block';
+		divCode.style.display = 'none';
+		txCode.focus();
+	}
+
+	var currTokenSpans = [];
+	interpreter.onbreak = function(context, currAst, funStack){
+		var stk = [currAst];
+		while(stk.length){
+			var ast = stk.pop();
+			if(ast.token && ast.token.id)
+				currTokenSpans.push(divCode.children[ast.token.id]);
+			for(var i=0; i<ast.children.length; i++){
+				stk.push(ast.children[i]);
+			}
+		}
+
+		for(var i=0; i< currTokenSpans.length; i++){
+			currTokenSpans[i].className += ' break';
+		}
+		currTokenSpans[0].scrollIntoViewIfNeeded();
+	};
+
+	interpreter.onresume = function(){
+		cancelHighlightBreakline();
+	};
+
+	interpreter.oncomplete = function(result){
+		stop();
+		
+		var pre = document.createElement('PRE');
+		pre.innerHTML = ' ' + result;
+		divConsole.appendChild(pre);
+		pre.style.color = 'gray';
+		pre.scrollIntoViewIfNeeded();
+		
+	};
+
+	function cancelHighlightBreakline(){
+		if(currTokenSpans.length){
+			for(var i=0; i< currTokenSpans.length; i++){
+				currTokenSpans[i].className = currTokenSpans[i].className.replace(' break', '');
+			}
+		}
+
+		currTokenSpans = [];
+	}
+</script>
+
+</html>

@@ -1,0 +1,311 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Insert title here</title>
+</head>
+<body>
+<div style="height:200px; overflow: scroll;">
+	<pre>
+	123 1. .2 23.23
+	0x23 024 -0x45 -024
+	23e4 .2e2 0e2 0.e2 2.e2 56.2e2 -2e2
+	123x 1.x 1.. .2. .2x 
+	元  a = '\"元"\'t'
+	1 + - ++ -- ? : / % ^ & () ! != !== == = ===
+	</pre>
+	<pre>
+	12 + 3 % 2 * 3
+	(12 + ((2)) * (3 + -4) * -2 * -(3 + 4))
+	</pre>
+	<pre>
+	12 + 3; 2 + 4;
+	3 * 5
+	
+	2 + 4
+	
+	
+	4
+	</pre>
+	<pre>
+12 + -
+
+
+3
+	</pre>
+	<pre>
+元
+
+
+ abcde123
+
+= 
+
+-
+
+12, t = 2, z, s = "dfasd"
+
+;
+
+元 t = s;
+	</pre>
+	<pre>
+[[
+姓名 :
+
+'陳平'
+
+,  '年齡' 
+:
+
+18
+
+]]
+	</pre>
+	<pre>[['abcd']]</pre>
+	<pre>[[abcd : 'test']] [[abcd]]</pre>
+	<pre>
+[[
+元  a = [[name : 'john']], b = [[name : 'mike']];
+
+]]
+	</pre>
+	<pre>
+{
+var a = {name :
+
+ 'john'}, b = {name : 'mike',}
+
+{
+    var m = 3;
+}
+
+}
+	</pre>
+	<pre>
+元 a = _()::[[
+    打印('adsfasd');
+]];
+	</pre>
+	<pre>
+@[[
+    a()#['abcd'](a)#length() + 2;
+]]
+	</pre>
+	<pre>- - - 1</pre>
+	<pre>++a--</pre>
+	<pre>[[1,,2,]]</pre>
+	<pre>
+元 a = vt
+(
+a
+,
+b
+
+) ::
+[[
+    元  c = 1, b=2;
+]];
+	</pre>
+	<pre>
+vt
+(
+a
+,
+b
+
+) ::
+[[
+    元 c = 1, b=2;
+]]	
+	</pre>
+	<pre>
+如果 a == 1 [[
+    b = 2;
+    alert('hello');
+]] 否則 如果 a == 2 [[
+   alert('cc');
+]] 否則 [[
+   alert('ddd');
+]]
+	</pre>
+<pre>
+如果 a > 2 反復 [[
+    打印(a);
+    a ++;
+]]
+</pre>
+<pre>
+如果 a [[
+為 1 : 打印('你好'); 跳出；
+為 2 : 打印('hello');跳出；
+其它  : 打印('請老實輸入'); 跳出；
+]]
+</pre>
+<pre>
+反復 [[
+    打印(a);
+    a ++;
+]] 如果 a > 2;
+</pre>
+<pre>
+令 a = 1; i < 100; i++ [[
+	打印(a);
+]]
+</pre>
+
+<pre>
+所有 a 屬於 o[[
+	打印(a);
+]]
+</pre>
+
+<pre>
+執行[[
+	元  a = 0;
+	元 b = 2;
+	元 c = b / a;
+]] 抓錯  e [[
+	打印('發生錯誤' + e);
+]] 最終 [[
+	打印('完成');
+]]
+</pre>
+
+</div>
+	<textarea rows="20" cols="60" id="txCode">var a = 1</textarea>
+	<input type="button" onclick="lex()" value="lex"></input>
+	<input type="button" onclick="parse()" value="parse"></input>
+	<textarea rows="20" cols="60" id="txResult"></textarea>
+	<div>
+		<input type="button" onclick="replacePeekChar()" value="replacePeekChar"></input>
+		<input type="button" onclick="lexSpeedTest()" value="lexSpeedTest"></input>
+		<input type="button" onclick="replaceTokenType()" value="replaceTokenType"></input>
+	</div>
+	<div id="divSpeed"></div>
+</body>
+<script src="lexer.js"> </script>
+<script src="js_lex_rule.js"> </script>
+<script src="parser.js"> </script>
+<script>
+	function lex(){
+		try{
+			var sb = [];
+			var lexer = new JsLexer(txCode.value, jsRules);
+			do{
+				var tk = lexer.nextToken();
+				sb.push(tk.toString().replace(/\r/gm, '\\r').replace(/\n/gm,'\\n'));
+			} while(tk.type != 'EOF');
+			txResult.value = sb.join('\r\n');
+		} catch(e){
+			txResult.value = e;
+			if(e instanceof SyntaxError){
+				txCode.selectionStart = e.pos;
+				txCode.selectionEnd = (e.token? e.pos + e.token.length :e.pos + 1);
+			}
+		}
+	}
+
+	function replacePeekChar(){
+		var lexer = new JsLexer(txCode.value, jsRules);
+		txResult.value = lexer.replacePeekChar();
+	}
+
+	function replaceTokenType(){
+		var lexer = new JsLexer(txCode.value, jsRules);
+		txResult.value = lexer.replaceTokenType();
+	}
+
+	function lexSpeedTest(){
+		var start = new Date() * 1;
+		for(var i=0; i<100; i++){
+		var lexer = new JsLexer(txCode.value, jsRules);
+			do{
+				var tk = lexer.nextToken();
+			} while(tk.type != 'EOF');
+		}
+		divSpeed.innerHTML = 'exhuast ' + (new Date() * 1- start) / 100; 
+	}
+
+	function parse(){
+		var lexer = new JsLexer(txCode.value, jsRules);
+		var parser = new Parser(lexer);
+		var tree = parser.parse(lexer);
+		
+		if(tree){
+			alert('parse complete')
+			tree.traceLispExpr();
+			//txResult.value = tree.toLispExpr();
+		}
+	return;
+		try{
+			var lexer = new JsLexer(txCode.value, jsRules);
+			var parser = new Parser(lexer);
+			var tree = parser.parse(lexer);
+
+			if(tree){
+				alert('parse complete')
+				tree.traceLispExpr();
+				//txResult.value = tree.toLispExpr();
+			}
+		} catch(e){
+			txResult.value = e;
+			if(e instanceof SyntaxError){
+				txCode.selectionStart = e.pos;
+				txCode.selectionEnd = (e.token? e.pos + e.token.length :e.pos + 1);
+			}
+		}
+	}
+
+	/* 終於出錯了 Uncaught ReferenceError: c is not defined ....., return a 不會出錯，匿名函數也可以放名字，但不會有用 /* 
+	var a = function abcd(){
+		var a = function c(){
+			return 1;
+		};
+		return c;
+	}(); */
+
+	/*
+	var a = [1];
+	var b = 
+
+		a
+
+		[0] */
+
+		/*
+		{var a =1}{var b = 2}  合法
+
+		不合法， b = {name : 'mike'} { 末尾的 { 放置不當
+		我現在加上 { 作為結尾符，後者也合法了
+		{
+			var a = {name :
+
+			 'john'}, b = {name : 'mike'} {
+			    var m = 3;
+			}
+
+			}
+		*/	 
+
+	/*
+		chrome 的 repl 對對象初始化中空項的處理，僅支持一個
+		{a:1,}
+		SyntaxError: Unexpected token }
+		var t = {a:1,}
+		undefined
+	*/
+	/*
+	var a = 1;
+		a
+		+
+		3
+	*/
+
+	/*
+	for(var i = 0
+			i < 2
+			i++){
+	}*/
+</script>
+</html>
